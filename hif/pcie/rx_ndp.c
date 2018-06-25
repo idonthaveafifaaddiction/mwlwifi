@@ -322,7 +322,9 @@ static inline void pcie_rx_process_fast_data(struct mwl_priv *priv,
 	} else
 		memcpy(skb_push(skb, hdrlen), &hdr, hdrlen);
 
+#if (defined(LINUX_BACKPORT) || (LINUX_VERSION_CODE >=KERNEL_VERSION(4,6,0)))
 	status->flag |= RX_FLAG_DUP_VALIDATED;
+#endif
 	ieee80211_rx(priv->hw, skb);
 
 	return;
@@ -382,7 +384,9 @@ static inline void pcie_rx_process_slow_data(struct mwl_priv *priv,
 		}
 	}
 
+#if (defined(LINUX_BACKPORT) || (LINUX_VERSION_CODE >=KERNEL_VERSION(4,6,0)))
 	status->flag |= RX_FLAG_DUP_VALIDATED;
+#endif
 	ieee80211_rx(priv->hw, skb);
 }
 
