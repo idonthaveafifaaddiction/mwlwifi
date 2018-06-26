@@ -37,6 +37,14 @@
 #define CHECK_BA_TRAFFIC_TIME           300 /* msec */
 #define CHECK_TX_DONE_TIME              50  /* msec */
 
+/* Optionally support the 8964 based on a module parameter. This allows for
+ * coexistence with the proprietary 8964 driver (wlan-v9).
+ */
+static int mwl_8964_support = 0;
+
+module_param(mwl_8964_support, int, 0);
+MODULE_PARM_DESC(mwl_8964_support, "Enable support for 88W8964");
+
 static struct pci_device_id pcie_id_tbl[] = {
 	{ PCI_VDEVICE(MARVELL, 0x2a55),     .driver_data = MWL8864, },
 	{ PCI_VDEVICE(MARVELL, 0x2b38),     .driver_data = MWL8897, },
@@ -1527,6 +1535,10 @@ static int pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	if (id->driver_data >= MWLUNKNOWN)
 		return -ENODEV;
+
+	if ((id->driver_data == MWL8964) && (mwl_8964_support == 0)) {
+		return -ENOTSUPP;
+	}
 
 	if (!printed_version) {
 		pr_info("<<%s version %s>>\n",
