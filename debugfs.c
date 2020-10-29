@@ -761,6 +761,76 @@ static ssize_t mwl_debugfs_txpwrlmt_read(struct file *file,
 				       priv->txpwrlmt_data.len);
 }
 
+static ssize_t mwl_debugfs_txpwrlmt_file_read(struct file *file,
+                                              char __user *ubuf,
+                                              size_t count, loff_t *ppos)
+{
+	struct mwl_priv *priv = (struct mwl_priv *)file->private_data;
+
+	const u32 txpwr_cfg_sig = cpu_to_le32(TXPWRLMT_CFG_SIGNATURE);
+	const u32 txpwr_cfg_ver = 0;
+	// The binary bytes take 2 chars and one space/nl plus some
+	// for the header.
+	int size = (SYSADPT_TXPWRLMT_CFG_BUF_SIZE * 3) + 40;
+	char *buf = kzalloc(size, GFP_KERNEL);
+	char *p = buf;
+	int len = 0;
+	int remain = priv->txpwrlmt_data.len;
+	const char *tblp = priv->txpwrlmt_data.buf;
+
+	ssize_t ret = 0;
+
+	if (!p)
+		return -ENOMEM;
+
+	len += scnprintf(p + len, size - len, "%*ph\n",
+			 TXPWRLMT_CFG_SIG_LEN, &txpwr_cfg_sig);
+	len += scnprintf(p + len, size - len, "%*ph\n",
+			 TXPWRLMT_CFG_VERSION_INFO_LEN, &txpwr_cfg_ver);
+
+	while (remain > sizeof(struct mwl_txpwrlmt_cfg_entry_hdr)) {
+		struct mwl_txpwrlmt_cfg_entry_hdr* subband_hdr =
+			(struct mwl_txpwrlmt_cfg_entry_hdr*)tblp;
+		u16 subband_len = le16_to_cpu(subband_hdr->len);
+		len += scnprintf(p + len, size - len, "\n%*ph\n",
+		                 sizeof(struct mwl_txpwrlmt_cfg_entry_hdr),
+		                 tblp);
+		tblp += sizeof(struct mwl_txpwrlmt_cfg_entry_hdr);
+		remain -= sizeof(struct mwl_txpwrlmt_cfg_entry_hdr);
+
+		// TODO(nhed): maybe add more sanity checks?
+		while (subband_len > 0) {
+			u16 hexd_line_cnt = min(subband_len, (u16)32);
+			len += scnprintf(p + len, size - len, "%*ph\n",
+			                 hexd_line_cnt, tblp);
+			tblp += hexd_line_cnt;
+			remain -= hexd_line_cnt;
+			subband_len -= hexd_line_cnt;
+		}
+
+		// Not sure why `\n` delimiters are added between subbands
+		// into the binary data buffer txpwrlmt_data.buf by
+		// mwl_fwcmd_get_txpwrlmt_cfg_data() but since we need to skip
+		// them we may as well test for them.
+		if (*tblp != '\n') {
+			printk("Unexpected lack of subband delimiter(s)\n");
+			ret = -EIO;
+			goto cleanup;
+		}
+		tblp++;
+		remain--;
+	}
+	len += scnprintf(p + len, size - len, "\n");
+	ret = simple_read_from_buffer(ubuf, count, ppos, p, len);
+
+cleanup:
+	if (buf) {
+		kfree(buf);
+	}
+
+	return ret;
+}
+
 static ssize_t mwl_debugfs_tx_amsdu_read(struct file *file,
 					 char __user *ubuf,
 					 size_t count, loff_t *ppos)
@@ -2139,6 +2209,7 @@ MWLWIFI_DEBUGFS_FILE_READ_OPS(ampdu);
 MWLWIFI_DEBUGFS_FILE_READ_OPS(stnid);
 MWLWIFI_DEBUGFS_FILE_READ_OPS(device_pwrtbl);
 MWLWIFI_DEBUGFS_FILE_READ_OPS(txpwrlmt);
+MWLWIFI_DEBUGFS_FILE_READ_OPS(txpwrlmt_file);
 MWLWIFI_DEBUGFS_FILE_OPS(tx_amsdu);
 MWLWIFI_DEBUGFS_FILE_OPS(dump_hostcmd);
 MWLWIFI_DEBUGFS_FILE_OPS(dump_probe);
@@ -2177,6 +2248,7 @@ void mwl_debugfs_init(struct ieee80211_hw *hw)
 	MWLWIFI_DEBUGFS_ADD_FILE(stnid);
 	MWLWIFI_DEBUGFS_ADD_FILE(device_pwrtbl);
 	MWLWIFI_DEBUGFS_ADD_FILE(txpwrlmt);
+	MWLWIFI_DEBUGFS_ADD_FILE(txpwrlmt_file);
 	MWLWIFI_DEBUGFS_ADD_FILE(tx_amsdu);
 	MWLWIFI_DEBUGFS_ADD_FILE(dump_hostcmd);
 	MWLWIFI_DEBUGFS_ADD_FILE(dump_probe);
