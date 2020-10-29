@@ -3750,8 +3750,7 @@ int mwl_fwcmd_set_txpwrlmt_cfg_data(struct ieee80211_hw *hw)
 
 		ptr += parsed_len;
 		size -= parsed_len;
-		data_len = le16_to_cpu(hdr.len) -
-			sizeof(struct mwl_txpwrlmt_cfg_entry_hdr);
+		data_len = le16_to_cpu(hdr.len);
 
 		pcmd = (struct hostcmd_cmd_txpwrlmt_cfg *)&priv->pcmd_buf[0];
 
