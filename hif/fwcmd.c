@@ -915,14 +915,21 @@ static u16 mwl_fwcmd_parse_txpwrlmt_cfg(const u8 *src, size_t len,
 			continue;
 		}
 
-		if (isxdigit(*ptr)) {
+		if (isxdigit(ptr[0]) && isxdigit(ptr[1])) {
 			byte_str[0] = *ptr++;
 			byte_str[1] = *ptr++;
 			kstrtol(byte_str, 16, &res);
 			*dptr++ = res;
 		} else {
-			ptr++;
+			// any failure to parse binary data in the hex
+			// format is complete failure.
+			return -1;
 		}
+	}
+
+	// Not able to parse the requested bytes - complete failure.
+	if((dptr - dst) != parse_len){
+		return -1;
 	}
 
 	return (ptr - src);
@@ -3678,7 +3685,8 @@ int mwl_fwcmd_set_txpwrlmt_cfg_data(struct ieee80211_hw *hw)
 	struct mwl_priv *priv = hw->priv;
 	struct hostcmd_cmd_txpwrlmt_cfg *pcmd;
 	struct mwl_txpwrlmt_cfg_entry_hdr hdr;
-	u16 id, parsed_len, size;
+	u16 id, size;
+	s16 parsed_len;
 	__le32 txpwr_cfg_sig;
 	u8 version[TXPWRLMT_CFG_VERSION_INFO_LEN];
 	const u8 *ptr;
@@ -3693,10 +3701,9 @@ int mwl_fwcmd_set_txpwrlmt_cfg_data(struct ieee80211_hw *hw)
 	parsed_len = mwl_fwcmd_parse_txpwrlmt_cfg(ptr, size,
 						  TXPWRLMT_CFG_SIG_LEN,
 						  (u8 *)&txpwr_cfg_sig);
-	ptr += parsed_len;
-	size -= parsed_len;
 
-	if (le32_to_cpu(txpwr_cfg_sig) != TXPWRLMT_CFG_SIGNATURE) {
+	if (parsed_len < 0 ||
+	    le32_to_cpu(txpwr_cfg_sig) != TXPWRLMT_CFG_SIGNATURE) {
 		wiphy_err(hw->wiphy,
 			  "txpwrlmt config signature mismatch\n");
 		release_firmware(priv->txpwrlmt_file);
@@ -3704,10 +3711,22 @@ int mwl_fwcmd_set_txpwrlmt_cfg_data(struct ieee80211_hw *hw)
 		return 0;
 	}
 
+	ptr += parsed_len;
+	size -= parsed_len;
+
 	/* Parsing TxPwrLmit Conf file Version */
 	parsed_len = mwl_fwcmd_parse_txpwrlmt_cfg(ptr, size,
 						  TXPWRLMT_CFG_VERSION_INFO_LEN,
 						  version);
+
+	if (parsed_len < 0) {
+		wiphy_err(hw->wiphy,
+		          "txpwrlmt config failed to read version\n");
+		release_firmware(priv->txpwrlmt_file);
+		priv->txpwrlmt_file = NULL;
+		return 0;
+	}
+
 	ptr += parsed_len;
 	size -= parsed_len;
 
@@ -3719,6 +3738,16 @@ int mwl_fwcmd_set_txpwrlmt_cfg_data(struct ieee80211_hw *hw)
 		parsed_len = mwl_fwcmd_parse_txpwrlmt_cfg(ptr, size,
 							  parsed_len,
 							  (u8 *)&hdr);
+
+		if (parsed_len < 0) {
+			wiphy_err(hw->wiphy,
+				  "txpwrlmt config failed to parse "
+				  "subband header\n");
+			release_firmware(priv->txpwrlmt_file);
+			priv->txpwrlmt_file = NULL;
+			return 0;
+		}
+
 		ptr += parsed_len;
 		size -= parsed_len;
 		data_len = le16_to_cpu(hdr.len) -
@@ -3737,6 +3766,16 @@ int mwl_fwcmd_set_txpwrlmt_cfg_data(struct ieee80211_hw *hw)
 		/* Parsing tx pwr cfg subband header info */
 		parsed_len = mwl_fwcmd_parse_txpwrlmt_cfg(ptr, size,
 							  data_len, pcmd->data);
+
+		if (parsed_len < 0) {
+			wiphy_err(hw->wiphy,
+				  "txpwrlmt config failed to parse subband data\n");
+			release_firmware(priv->txpwrlmt_file);
+			priv->txpwrlmt_file = NULL;
+			mutex_unlock(&priv->fwcmd_mutex);
+			return 0;
+		}
+
 		ptr += parsed_len;
 		size -= parsed_len;
 
