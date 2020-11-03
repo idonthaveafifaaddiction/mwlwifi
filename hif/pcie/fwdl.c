@@ -31,6 +31,12 @@
 
 #define FW_MAX_NUM_CHECKS               0xffff
 
+static int mwl_force_abort_after_fw_load = 1;
+
+module_param(mwl_force_abort_after_fw_load, int, 0);
+MODULE_PARM_DESC(mwl_force_abort_after_fw_load,
+		 "Force an abort after loading firmware");
+
 static void pcie_trigger_pcicmd_bootcode(struct pcie_priv *pcie_priv)
 {
 	writel(pcie_priv->mwl_priv->pphys_cmd_buf,
@@ -234,6 +240,11 @@ int pcie_download_firmware(struct ieee80211_hw *hw)
 	wiphy_debug(hw->wiphy,
 		    "FwSize = %d downloaded Size = %d curr_iteration %d\n",
 		    (int)fw->size, size_fw_downloaded, curr_iteration);
+
+	if (mwl_force_abort_after_fw_load != 0) {
+		wiphy_warn(hw->wiphy, "forcing fw load abort\n");
+		return -ECONNABORTED;
+	}
 
 	/* Now firware is downloaded successfully, so this part is to check
 	 * whether fw can properly execute to an extent that write back

@@ -45,6 +45,11 @@ static int mwl_8964_support = 0;
 module_param(mwl_8964_support, int, 0);
 MODULE_PARM_DESC(mwl_8964_support, "Enable support for 88W8964");
 
+static char *mwl_override_fw = NULL;
+
+module_param(mwl_override_fw, charp, 0);
+MODULE_PARM_DESC(mwl_override_fw, "Override the default firmware to load");
+
 static struct pci_device_id pcie_id_tbl[] = {
 	{ PCI_VDEVICE(MARVELL, 0x2a55),     .driver_data = MWL8864, },
 	{ PCI_VDEVICE(MARVELL, 0x2b38),     .driver_data = MWL8897, },
@@ -1599,7 +1604,10 @@ static int pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (rc)
 		goto err_alloc_pci_resource;
 
-	rc = mwl_init_hw(hw, pcie_chip_tbl[priv->chip_type].fw_image,
+	rc = mwl_init_hw(hw,
+			 (mwl_override_fw ?
+			  mwl_override_fw :
+			  pcie_chip_tbl[priv->chip_type].fw_image),
 			 pcie_chip_tbl[priv->chip_type].cal_file,
 			 pcie_chip_tbl[priv->chip_type].txpwrlmt_file);
 	if (rc)
