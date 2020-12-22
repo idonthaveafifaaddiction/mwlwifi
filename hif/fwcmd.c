@@ -2589,10 +2589,18 @@ int mwl_fwcmd_encryption_set_key(struct ieee80211_hw *hw,
 		action = ENCR_ACTION_TYPE_SET_KEY;
 	else {
 		action = ENCR_ACTION_TYPE_SET_GROUP_KEY;
-		if (vif->type == NL80211_IFTYPE_MESH_POINT &&
-		    !ether_addr_equal(mwl_vif->bssid, addr))
+
+/* TODO: This code is missing in git ToT now - security mayn't work */
+#if 0
+{
+		action = ENCR_ACTION_TYPE_SET_GROUP_KEY;
+
+		/* if (vif->type == NL80211_IFTYPE_MESH_POINT &&
+		    !ether_addr_equal(mwl_vif->bssid, addr)) */
 			pcmd->key_param.key_info |=
 				cpu_to_le32(ENCR_KEY_FLAG_RXGROUPKEY);
+}
+#endif
 	}
 
 	switch (key->cipher) {
@@ -2604,6 +2612,21 @@ int mwl_fwcmd_encryption_set_key(struct ieee80211_hw *hw,
 			mwl_vif->wep_key_conf[idx].enabled = 1;
 		}
 
+		if (vif->type == NL80211_IFTYPE_STATION) {
+			ether_addr_copy(mwl_vif->bssid, vif->bss_conf.bssid);
+#if 1
+		}
+#else
+// XXX(swiryaman) .cfg_flags is not a member of key_param in this release
+		} else if(vif->type == NL80211_IFTYPE_ADHOC) {
+			if(!ether_addr_equal(vif->addr, addr)) {
+				/* To handle a race condition when mac80211 doesnt populate
+				 * keys for the newly added STA. Requesting FW to populate
+				 * Keys for all the IBSS STA added till now */
+				pcmd->key_param.cfg_flags = cpu_to_le32(0x1);
+			}
+		}
+#endif
 		keymlen = key->keylen;
 		action = ENCR_ACTION_TYPE_SET_KEY;
 		break;
@@ -2627,13 +2650,18 @@ int mwl_fwcmd_encryption_set_key(struct ieee80211_hw *hw,
 		return -EIO;
 	}
 
-	if (vif->type == NL80211_IFTYPE_STATION) {
+	if ((vif->type == NL80211_IFTYPE_STATION) ||
+		(vif->type == NL80211_IFTYPE_P2P_CLIENT)) {
 		if (ether_addr_equal(mwl_vif->bssid, addr))
 			ether_addr_copy(pcmd->key_param.mac_addr,
 					mwl_vif->sta_mac);
 		else
 			ether_addr_copy(pcmd->key_param.mac_addr,
 					mwl_vif->bssid);
+
+		pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_UPDATE_ENCRYPTION);
+		pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+		pcmd->cmd_hdr.macid = mwl_vif->macid;
 
 		if (mwl_hif_exec_cmd(hw, HOSTCMD_CMD_UPDATE_ENCRYPTION)) {
 			mutex_unlock(&priv->fwcmd_mutex);
