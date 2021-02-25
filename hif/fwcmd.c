@@ -2368,6 +2368,7 @@ int mwl_fwcmd_set_new_stn_del(struct ieee80211_hw *hw,
 	struct mwl_priv *priv = hw->priv;
 	struct mwl_vif *mwl_vif;
 	struct hostcmd_cmd_set_new_stn *pcmd;
+	__le16 hdrlen;
 
 	mwl_vif = mwl_dev_get_vif(vif);
 
@@ -2383,6 +2384,7 @@ int mwl_fwcmd_set_new_stn_del(struct ieee80211_hw *hw,
 		memset(pcmd, 0x00, sizeof(*pcmd));
 		pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
 	}
+	hdrlen = pcmd->cmd_hdr.len;
 	pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_NEW_STN);
 	pcmd->cmd_hdr.macid = mwl_vif->macid;
 
@@ -2397,7 +2399,7 @@ int mwl_fwcmd_set_new_stn_del(struct ieee80211_hw *hw,
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		ether_addr_copy(pcmd->mac_addr, mwl_vif->sta_mac);
 		pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_NEW_STN);
-		pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+		pcmd->cmd_hdr.len = hdrlen;
 
 		if (mwl_hif_exec_cmd(hw, HOSTCMD_CMD_SET_NEW_STN)) {
 			mutex_unlock(&priv->fwcmd_mutex);
