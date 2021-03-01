@@ -31,7 +31,7 @@
 
 #define FW_MAX_NUM_CHECKS               0xffff
 
-static int mwl_force_abort_after_fw_load = 1;
+static int mwl_force_abort_after_fw_load = 0;
 
 module_param(mwl_force_abort_after_fw_load, int, 0);
 MODULE_PARM_DESC(mwl_force_abort_after_fw_load,
