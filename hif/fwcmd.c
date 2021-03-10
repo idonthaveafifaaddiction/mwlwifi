@@ -2188,6 +2188,9 @@ int mwl_fwcmd_set_new_stn_add(struct ieee80211_hw *hw,
 		mutex_unlock(&priv->fwcmd_mutex);
 		return -EIO;
 	}
+	pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_NEW_STN);
+	pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+	pcmd->cmd_hdr.macid = mwl_vif->macid;
 
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		ether_addr_copy(pcmd->mac_addr, mwl_vif->sta_mac);
@@ -2276,6 +2279,9 @@ int mwl_fwcmd_set_new_stn_add_sc4(struct ieee80211_hw *hw,
 		mutex_unlock(&priv->fwcmd_mutex);
 		return -EIO;
 	}
+	pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_NEW_STN);
+	pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+	pcmd->cmd_hdr.macid = mwl_vif->macid;
 
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		ether_addr_copy(pcmd->mac_addr, mwl_vif->sta_mac);
@@ -2362,6 +2368,7 @@ int mwl_fwcmd_set_new_stn_del(struct ieee80211_hw *hw,
 	struct mwl_priv *priv = hw->priv;
 	struct mwl_vif *mwl_vif;
 	struct hostcmd_cmd_set_new_stn *pcmd;
+	__le16 hdrlen;
 
 	mwl_vif = mwl_dev_get_vif(vif);
 
@@ -2377,6 +2384,7 @@ int mwl_fwcmd_set_new_stn_del(struct ieee80211_hw *hw,
 		memset(pcmd, 0x00, sizeof(*pcmd));
 		pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
 	}
+	hdrlen = pcmd->cmd_hdr.len;
 	pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_NEW_STN);
 	pcmd->cmd_hdr.macid = mwl_vif->macid;
 
@@ -2390,6 +2398,8 @@ int mwl_fwcmd_set_new_stn_del(struct ieee80211_hw *hw,
 
 	if (vif->type == NL80211_IFTYPE_STATION) {
 		ether_addr_copy(pcmd->mac_addr, mwl_vif->sta_mac);
+		pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_NEW_STN);
+		pcmd->cmd_hdr.len = hdrlen;
 
 		if (mwl_hif_exec_cmd(hw, HOSTCMD_CMD_SET_NEW_STN)) {
 			mutex_unlock(&priv->fwcmd_mutex);
@@ -2541,6 +2551,10 @@ int mwl_fwcmd_update_encryption_enable(struct ieee80211_hw *hw,
 		else
 			ether_addr_copy(pcmd->mac_addr, mwl_vif->bssid);
 
+		pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_UPDATE_ENCRYPTION);
+		pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+		pcmd->cmd_hdr.macid = mwl_vif->macid;
+
 		if (mwl_hif_exec_cmd(hw, HOSTCMD_CMD_UPDATE_ENCRYPTION)) {
 			mutex_unlock(&priv->fwcmd_mutex);
 			return -EIO;
@@ -2634,6 +2648,10 @@ int mwl_fwcmd_encryption_set_key(struct ieee80211_hw *hw,
 		else
 			ether_addr_copy(pcmd->key_param.mac_addr,
 					mwl_vif->bssid);
+
+		pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_UPDATE_ENCRYPTION);
+		pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+		pcmd->cmd_hdr.macid = mwl_vif->macid;
 
 		if (mwl_hif_exec_cmd(hw, HOSTCMD_CMD_UPDATE_ENCRYPTION)) {
 			mutex_unlock(&priv->fwcmd_mutex);
@@ -3042,6 +3060,9 @@ int mwl_fwcmd_set_wsc_ie(struct ieee80211_hw *hw, u8 len, u8 *data)
 	}
 
 	pcmd->ie_type = cpu_to_le16(WSC_IE_SET_PROBE_RESPONSE);
+	pcmd->cmd_hdr.cmd = cpu_to_le16(HOSTCMD_CMD_SET_WSC_IE);
+	pcmd->cmd_hdr.len = cpu_to_le16(sizeof(*pcmd));
+	pcmd->len = cpu_to_le16(len);
 
 	if (mwl_hif_exec_cmd(hw, HOSTCMD_CMD_SET_WSC_IE)) {
 		mutex_unlock(&priv->fwcmd_mutex);
